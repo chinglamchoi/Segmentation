@@ -7,6 +7,8 @@ from torchvision import transforms as transforms
 import numpy as np
 import os
 from skimage.segmentation import find_boundaries
+#from skimage.metrics import adapted_rand_error
+from sklearn.metrics import adjusted_rand_score
 #from loss import DiceLoss
 from skimage import io
 import unet_multi
@@ -15,6 +17,7 @@ import torch.nn as nn
 
 from sklearn.metrics import roc_curve, auc
 from sklearn.metrics import roc_auc_score
+
 
 class BrainTumour(data.Dataset):
 
@@ -39,7 +42,6 @@ class BrainTumour(data.Dataset):
         img1 = self.img_transform(img1)
         return (img1, mask1, lb, idx)
 
-"""
 def DiceLoss(a,b):
     tot = 256*256
     smooth = 1.
@@ -47,13 +49,24 @@ def DiceLoss(a,b):
     b = b.view(-1)
     intersection = (a*b).sum()
     return 1 - ((2. * intersection + smooth) / (a.sum() + b.sum() + smooth))
-"""
 
+"""
 def PixelLoss(a,b):
-    a = (a > 0.5).double()
+    a = (a > 0.5).float()
     c = find_boundaries(a.cpu().numpy(), background=0)
     d = find_boundaries(b.cpu().numpy(), background=0)
     return np.linalg.norm(np.subtract(c,d, dtype=np.float32)) #precompute for trainset
+"""
+
+def RandLoss(a,b):
+    a = (a > 0.5).float()
+    a = a.reshape((256, 256))
+    b = b.reshape((256,256))
+    a = a.cpu().numpy().flatten()
+    b = b.cpu().numpy().flatten()
+    c = adjusted_rand_score(a,b)
+    c = (c+1)/2
+    return 1 - c
 
 #torch.multiprocessing.freeze_support()
 if __name__ == "__main__":
@@ -73,14 +86,16 @@ if __name__ == "__main__":
         net.to(device)
 
     net = net.eval()
-    """
+
     path_ = "./TCGA/mask_pred/" + pretrain + "/"
     try:
         os.mkdir(path_)
     except:
         pass
-    """
+
     tot = 0.0
+    tot_rand = 0.0
+    #a = 0
     with torch.no_grad():
         tp, fp, tn, fn = 0,0,0,0
         for img, mask, lb, idx in testloader:
@@ -89,6 +104,9 @@ if __name__ == "__main__":
             mask_pred = net(img)
             #t = _.item()
             t = torch.sigmoid(mask_pred)
+            #_ = (torch.max(t)-torch.min(t)).item()
+            #a = _ if _ > a else a
+            #print(a, torch.max(mask_pred))
             if len(t[t >=0.5]) > 0:
             #if t >= 0.5:
                 tp = tp + 1 if lb.item() > 0.5 else tp
@@ -96,10 +114,18 @@ if __name__ == "__main__":
             else:
                 tn = tn + 1 if lb.item() < 0.5 else tn
                 fn = fn + 1 if lb.item() > 0.5 else fn
-            #tot += DiceLoss(mask_pred, mask)
-            tot += PixelLoss(torch.sigmoid(mask_pred), mask)
-            #mask_pred.to("cpu")
-            #torchvision.utils.save_image(mask_pred, path_ + idx[0])
+            tot += DiceLoss(t, mask)
+            t_ = (t >= 0.5).float()
+            """
+            _ = adapted_rand_error(mask.cpu().numpy().astype(int), t_.cpu().numpy().astype(int))
+            tot_rand[0] += _[0]
+            tot_rand[1] += _[1]
+            tot_rand[2] += _[2]
+            """
+            tot_rand += RandLoss(t, mask)
+            #a += 1
+            mask_pred.to("cpu")
+            torchvision.utils.save_image(mask_pred, path_ + idx[0])
         """
         print("ROC-AUC Score: ", roc_auc_score(y_true, y_scores))
         fpr, tpr, _ = roc_curve(y_true, y_scores)
@@ -127,5 +153,6 @@ if __name__ == "__main__":
         print("F1 score:", 2*precision*recall/(precision+recall))
     except:
         print("F1 score:", 0)
-    #print("Dice Loss:", tot/759) #dice loss
-    print("Pixel Loss:", tot/759)
+    print("Dice Loss:", tot.item()/759) #dice loss
+    print("Rand Lcore:", tot_rand/759)
+    #print("Rand error: %f | Rand precision: %f | Rand recall: %f "%(tot_rand[0]/759, tot_rand[1]/759, tot_rand[2]/759))
