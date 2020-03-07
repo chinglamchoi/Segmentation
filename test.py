@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import pandas as pd
 import torch
 import torch.utils.data as data
 import torchvision
@@ -8,6 +9,7 @@ import os
 from skimage.segmentation import find_boundaries
 #from skimage.metrics import adapted_rand_error
 from sklearn.metrics import adjusted_rand_score
+#from loss import DiceLoss
 from skimage import io
 import unet_multi
 import unet
@@ -50,14 +52,14 @@ def DiceLoss(a,b):
 
 """
 def PixelLoss(a,b):
-    a = (a > 0.5).float()
+    a = (a > 0.4).float()
     c = find_boundaries(a.cpu().numpy(), background=0)
     d = find_boundaries(b.cpu().numpy(), background=0)
     return np.linalg.norm(np.subtract(c,d, dtype=np.float32)) #precompute for trainset
 """
 
 def RandLoss(a,b):
-    a = (a > 0.5).float()
+    a = (a >= 0.375).float()
     a = a.reshape((256, 256))
     b = b.reshape((256,256))
     a = a.cpu().numpy().flatten()
@@ -72,10 +74,10 @@ if __name__ == "__main__":
     testset = BrainTumour(img_dir='./TCGA/imgs/test/', mask_dir='./TCGA/masks/test/', lbs=test_label_file)
     testloader = data.DataLoader(testset, batch_size=1, shuffle=False, num_workers=4)
     
-    net = unet.run_cnn()
-    #net = unet_multi.run_cnn()
+    #net = unet.run_cnn()
+    net = unet_multi.run_cnn()
     pretrain = input("File path of pretrained model: ")
-    checkpoint = torch.load(pretrain, map_location="cuda:0")
+    checkpoint = torch.load("report/" + pretrain + ".pt", map_location="cuda:0")
     #checkpoint = torch.load("./TCGA/newest_adam/" + pretrain)
     net.load_state_dict(checkpoint["net"])
     a = "cuda:0"
@@ -98,22 +100,22 @@ if __name__ == "__main__":
         tp, fp, tn, fn = 0,0,0,0
         for img, mask, lb, idx in testloader:
             img, mask = img.to(device), mask.to(device)
-            #mask_pred, _ = net(img)
-            mask_pred = net(img)
+            mask_pred, _ = net(img)
+            #mask_pred = net(img)
             #t = _.item()
             t = torch.sigmoid(mask_pred)
             #_ = (torch.max(t)-torch.min(t)).item()
             #a = _ if _ > a else a
             #print(a, torch.max(mask_pred))
-            if len(t[t >=0.5]) > 0:
+            if len(t[t >=0.375]) > 0:
             #if t >= 0.5:
-                tp = tp + 1 if lb.item() > 0.5 else tp
-                fp = fp + 1 if lb.item() < 0.5 else fp
+                tp = tp + 1 if lb.item() >= 0.375 else tp
+                fp = fp + 1 if lb.item() < 0.375 else fp
             else:
-                tn = tn + 1 if lb.item() < 0.5 else tn
-                fn = fn + 1 if lb.item() > 0.5 else fn
-            tot += DiceLoss(t, mask)
-            t_ = (t >= 0.5).float()
+                tn = tn + 1 if lb.item() < 0.375 else tn
+                fn = fn + 1 if lb.item() >= 0.375 else fn
+            t_ = (t >= 0.375).float()
+            tot += DiceLoss(t_, mask)
             """
             _ = adapted_rand_error(mask.cpu().numpy().astype(int), t_.cpu().numpy().astype(int))
             tot_rand[0] += _[0]
