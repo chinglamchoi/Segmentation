@@ -59,7 +59,7 @@ def PixelLoss(a,b):
 """
 
 def RandLoss(a,b):
-    a = (a >= 0.375).float()
+    a = (a >= 0.5).float()
     a = a.reshape((256, 256))
     b = b.reshape((256,256))
     a = a.cpu().numpy().flatten()
@@ -107,14 +107,14 @@ if __name__ == "__main__":
             #_ = (torch.max(t)-torch.min(t)).item()
             #a = _ if _ > a else a
             #print(a, torch.max(mask_pred))
-            if len(t[t >=0.375]) > 0:
+            if len(t[t >=0.5]) > 0:
             #if t >= 0.5:
-                tp = tp + 1 if lb.item() >= 0.375 else tp
-                fp = fp + 1 if lb.item() < 0.375 else fp
+                tp = tp + 1 if lb.item() >= 0.5 else tp
+                fp = fp + 1 if lb.item() < 0.5 else fp
             else:
-                tn = tn + 1 if lb.item() < 0.375 else tn
-                fn = fn + 1 if lb.item() >= 0.375 else fn
-            t_ = (t >= 0.375).float()
+                tn = tn + 1 if lb.item() < 0.5 else tn
+                fn = fn + 1 if lb.item() >= 0.5 else fn
+            t_ = (t >= 0.5).float()
             tot += DiceLoss(t_, mask)
             """
             _ = adapted_rand_error(mask.cpu().numpy().astype(int), t_.cpu().numpy().astype(int))
@@ -154,5 +154,5 @@ if __name__ == "__main__":
     except:
         print("F1 score:", 0)
     print("Dice Loss:", tot.item()/759) #dice loss
-    print("Rand Lcore:", tot_rand/759)
+    print("Rand Score:", tot_rand/759)
     #print("Rand error: %f | Rand precision: %f | Rand recall: %f "%(tot_rand[0]/759, tot_rand[1]/759, tot_rand[2]/759))
