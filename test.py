@@ -7,9 +7,7 @@ from torchvision import transforms as transforms
 import numpy as np
 import os
 from skimage.segmentation import find_boundaries
-#from skimage.metrics import adapted_rand_error
 from sklearn.metrics import adjusted_rand_score
-#from loss import DiceLoss
 from skimage import io
 import unet_multi
 import unet
