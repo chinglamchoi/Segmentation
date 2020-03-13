@@ -21,3 +21,9 @@ File path of pretrained model: gap_lr0.001_sp0.5_Adam_m0
 F1 score: 0.8540305010893245  
 Dice Loss: 0.18476905873013422  
 Rand Lcore: 0.09526182429473601  
+
+File path of pretrained model: gap_lr0.0001_sp0.5_Adam_m0
+181 2 501 75
+F1 score: 0.8246013667425968
+Dice Loss: 0.18006609488224637
+Rand Lcore: 0.09215415634089472
