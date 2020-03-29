@@ -173,27 +173,28 @@ if __name__ == "__main__":
             optimizer.zero_grad()
             loss2.backward()
             optimizer.step()
-        train_loss.append(epoch_loss/25360)
-        print("Epoch" + str(epoch) + " Train Loss:", epoch_loss/25360) 
+        train_loss.append(epoch_loss/1056.7)
+        print("Epoch" + str(epoch) + " Train Loss:", epoch_loss/1056.7) 
         
         model = model.eval()
         tot = 0
         tot_val = 0.0
-        for img, mask, lb, idx in testloader:
-            weights = np.squeeze(list(model.parameters())[-2].cpu().data.numpy())
-            feature_blobs = []
-            img = img.to(device)
-            lb = lb.to(device)
-            mask = mask.to(device)
-            mask_pred, pred_lb = model(img)
-            CAMs = returnCAM(feature_blobs[0], weights).to(device)
-            CAMs_sig = (torch.sigmoid(CAMs) >= 0.5).float()
-            tot += DiceLoss(CAMs_sig, mask).item()
-            tot_val += criterion2(CAMs, mask).item()
-        loss_ = tot_val/759
+        with torch.no_grad():
+            for img, mask, lb, idx in testloader:
+                weights = np.squeeze(list(model.parameters())[-2].cpu().data.numpy())
+                feature_blobs = []
+                img = img.to(device)
+                lb = lb.to(device)
+                mask = mask.to(device)
+                mask_pred, pred_lb = model(img)
+                CAMs = returnCAM(feature_blobs[0], weights).to(device)
+                CAMs_sig = (torch.sigmoid(CAMs) >= 0.5).float()
+                tot += DiceLoss(CAMs_sig, mask).item()
+                tot_val += criterion2(CAMs, mask).item()
+        loss_ = tot_val/31.6
         print("Epoch" + str(epoch) + " Val Loss:", loss_)
         val_loss.append(loss_)
-        loss = tot/759
+        loss = tot/31.6
         print("Epoch" + str(epoch) + " Test Loss:", loss_)
         if loss_ < best_loss:
             valid = True
