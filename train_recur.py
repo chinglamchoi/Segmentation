@@ -184,7 +184,7 @@ if __name__ == "__main__":
             loss.requires_grad = True
             loss.backward()
             optimizer.step()
-        epoch_loss = loss.item()/25360
+        epoch_loss = loss.item()/1056.7
         train_loss.append(epoch_loss)
         print("Epoch" + str(epoch) + " Train Loss:", epoch_loss) 
         
@@ -192,44 +192,45 @@ if __name__ == "__main__":
         tot = 0
         test_acc = 0.0
         loss = 0.0
-        for img, mask, lb, idx in testloader:
-            weights = np.squeeze(list(net.parameters())[-2].cpu().data.numpy())
-            feature_blobs = []
-            mask_type = torch.float32
-            img, mask = (img.to(device), mask.to(device, dtype=mask_type))
-            mask_pred, pred_lb = net(img)
-            CAMs = returnCAM(feature_blobs[0], weights).to(device)
-            CAMs_ = torch.sigmoid(CAMs)
-            cnt = 0
-            mask_prop = torch.zeros(CAMs_.size())
-            for sample in CAMs_:
-                img_ = img[cnt, :, :, :]
-                img_ = img_.reshape(1, 3, 256, 256)
-                sample = sample.reshape(256,256)
-                cnt1 = 0
-                erase = (torch.zeros(sample.size())>1).to(device)
-                while len(sample[sample >= 0.5])>0 and not ((sample >= 0.5) == erase).all():
-                    if cnt1 == 19:
-                        break
-                #while cnt1 < 3:
-                    erase = sample >= 0.5
-                    img_[0,0,:,:][erase] = px_avg[0]
-                    img_[0,1,:,:][erase] = px_avg[1]
-                    img_[0,2,:,:][erase] = px_avg[2]
-                    mask_prop[0,0,:,:][erase] = 1
-                    feature_blobs = []
-                    sample, _ = net(img_)
-                    sample = returnCAM(feature_blobs[0], weights).to(device)
-                    sample = torch.sigmoid(sample)
+        with torch.no_grad():
+            for img, mask, lb, idx in testloader:
+                weights = np.squeeze(list(net.parameters())[-2].cpu().data.numpy())
+                feature_blobs = []
+                mask_type = torch.float32
+                img, mask = (img.to(device), mask.to(device, dtype=mask_type))
+                mask_pred, pred_lb = net(img)
+                CAMs = returnCAM(feature_blobs[0], weights).to(device)
+                CAMs_ = torch.sigmoid(CAMs)
+                cnt = 0
+                mask_prop = torch.zeros(CAMs_.size())
+                for sample in CAMs_:
+                    img_ = img[cnt, :, :, :]
+                    img_ = img_.reshape(1, 3, 256, 256)
                     sample = sample.reshape(256,256)
-                    cnt1 += 1
-                cnt += 1
-                mask_prop = mask_prop.to(device)
-                ##loss += DiceLoss(mask_prop.to(device), mask).item()
-                loss += criterion(mask_prop, mask).item()
-                test_acc += DiceLoss(mask_prop, mask).item()
-        loss /= 759
-        test_acc /= 759
+                    cnt1 = 0
+                    erase = (torch.zeros(sample.size())>1).to(device)
+                    while len(sample[sample >= 0.5])>0 and not ((sample >= 0.5) == erase).all():
+                        if cnt1 == 19:
+                            break
+                    #while cnt1 < 3:
+                        erase = sample >= 0.5
+                        img_[0,0,:,:][erase] = px_avg[0]
+                        img_[0,1,:,:][erase] = px_avg[1]
+                        img_[0,2,:,:][erase] = px_avg[2]
+                        mask_prop[0,0,:,:][erase] = 1
+                        feature_blobs = []
+                        sample, _ = net(img_)
+                        sample = returnCAM(feature_blobs[0], weights).to(device)
+                        sample = torch.sigmoid(sample)
+                        sample = sample.reshape(256,256)
+                        cnt1 += 1
+                    cnt += 1
+                    mask_prop = mask_prop.to(device)
+                    ##loss += DiceLoss(mask_prop.to(device), mask).item()
+                    loss += criterion(mask_prop, mask).item()
+                    test_acc += DiceLoss(mask_prop, mask).item()
+        loss /= 31.6
+        test_acc /= 31.6
         print("Epoch" + str(epoch) + " Val Loss:", loss)
         print("Epoch" + str(epoch) + " Test Accuracy:", test_acc)
         if test_acc > best_acc:
